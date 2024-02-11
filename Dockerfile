@@ -32,4 +32,7 @@ RUN pip install -e .
 RUN pip install -e ".[train]"
 RUN pip install flash-attn --no-build-isolation
 WORKDIR /app
+ENV MODEL="LanguageBind/MoE-LLaVA-Phi2-2.7B-4e-384"
+ENV HF_HOME="/"
+RUN python3 download_model.py
 CMD ["python3", "./worker.py"]
