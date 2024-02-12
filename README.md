@@ -1,4 +1,4 @@
-# Docker - MoE-LLaVA - API
+# Docker - MoE-LLaVA - RunPod Serverless API
 
 Model: [LanguageBind/MoE-LLaVA-Phi2-2.7B-4e-384](https://huggingface.co/LanguageBind/MoE-LLaVA-Phi2-2.7B-4e-384)
 
