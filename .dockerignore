@@ -4,5 +4,5 @@
 .gitattributes
 README.md
 .env
-src/MoE-LLaVA
 .python-version
+app

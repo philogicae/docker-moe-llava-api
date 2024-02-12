@@ -1,5 +1,5 @@
 import runpod
-import base64
+from base64 import b64encode
 from rich import print
 from dotenv import load_dotenv
 from os import getenv
@@ -10,7 +10,7 @@ load_dotenv()
 runpod.api_key = getenv("RUNPOD_API_KEY")
 endpoint_id = getenv("RUNPOD_ENDPOINT_ID")
 endpoint = runpod.Endpoint(endpoint_id)
-TIMEOUT = 120
+TIMEOUT = 200
 
 
 def sync_call(data):
@@ -27,7 +27,7 @@ def async_call(data):
 
 def load_img(filename):
     with open("input/" + filename, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
+        return b64encode(f.read()).decode("utf-8")
 
 
 def save_output(filename, result):
@@ -36,17 +36,30 @@ def save_output(filename, result):
 
 
 if __name__ == "__main__":
+    print(async_call({"schema": True})())
+    inputs = [
+        [
+            ["01.jpg", "02.jpg"],
+            "What is the TTC price to pay mentionned in this 2 pages bill?",
+        ],
+        [["book.jpg"], "What is the title of this book?"],
+        [
+            ["test.png"],
+            "What do you see on this image? Don't censor yourself, describe it accurately",
+        ],
+        [["weird.jpg"], "Explain this image"],
+    ]
+    params = dict(temperature=0.3, top_p=0.9)
     data = dict(
         data=[
             dict(
-                images_base64=[
-                    load_img(img) for img in input("Filenames: ").split(" ")
-                ],
-                prompt=input("Prompt: "),
+                images_base64=[load_img(img) for img in item[0]],
+                prompt=item[1],
+                params=params,
             )
+            for item in inputs
         ]
     )
-    # result = sync_call(data)
     result = async_call(data)()
     print(result)
     save_output("test", result)

@@ -135,6 +135,6 @@ dmypy.json
 .github
 .devcontainer
 src/jobs
-src/MoE-LLaVA
+app
 input
 output

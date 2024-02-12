@@ -1,4 +1,5 @@
-import torch
+from os import getenv
+from torch import float16, inference_mode
 from moellava.constants import IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN
 from moellava.conversation import conv_templates, SeparatorStyle
 from moellava.model.builder import load_pretrained_model
@@ -10,8 +11,8 @@ from moellava.mm_utils import (
 )
 
 
-class Multimodal:
-    model_path = "LanguageBind/MoE-LLaVA-Phi2-2.7B-4e-384"
+class Vision:
+    model_path = getenv("MODEL", "LanguageBind/MoE-LLaVA-Phi2-2.7B-4e-384")
     device = "cuda"
     load_4bit, load_8bit = False, False
     conv_mode = "phi"
@@ -33,7 +34,7 @@ class Multimodal:
         conv = conv_templates[self.conv_mode].copy()
         image_tensor = self.image_processor.preprocess(images, return_tensors="pt")[
             "pixel_values"
-        ].to(self.model.device, dtype=torch.float16)
+        ].to(self.model.device, dtype=float16)
         inp = DEFAULT_IMAGE_TOKEN + "\n" + prompt
         conv.append_message(conv.roles[0], inp)
         conv.append_message(conv.roles[1], None)
@@ -50,7 +51,7 @@ class Multimodal:
         stopping_criteria = KeywordsStoppingCriteria(
             keywords, self.tokenizer, input_ids
         )
-        with torch.inference_mode():
+        with inference_mode():
             output_ids = self.model.generate(
                 input_ids,
                 images=image_tensor,
