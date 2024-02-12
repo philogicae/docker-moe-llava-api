@@ -36,7 +36,16 @@ def save_output(filename, result):
 
 
 if __name__ == "__main__":
-    data = dict(file_raw=load_img(input("Filename IMG: ")), prompt=input("Prompt: "))
+    data = dict(
+        data=[
+            dict(
+                images_base64=[
+                    load_img(img) for img in input("Filenames: ").split(" ")
+                ],
+                prompt=input("Prompt: "),
+            )
+        ]
+    )
     # result = sync_call(data)
     result = async_call(data)()
     print(result)

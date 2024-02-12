@@ -29,14 +29,12 @@ class Multimodal:
         )
         self.image_processor = processor["image"]
 
-    def process(self, image, prompt, custom_params: dict = {}):
+    def process(self, images, prompt, custom_params: dict = {}):
         conv = conv_templates[self.conv_mode].copy()
-        roles = conv.roles
-        image_tensor = self.image_processor.preprocess(image, return_tensors="pt")[
+        image_tensor = self.image_processor.preprocess(images, return_tensors="pt")[
             "pixel_values"
         ].to(self.model.device, dtype=torch.float16)
-        print(f"{roles[1]}: {inp}")
-        inp = DEFAULT_IMAGE_TOKEN + "\n" + inp
+        inp = DEFAULT_IMAGE_TOKEN + "\n" + prompt
         conv.append_message(conv.roles[0], inp)
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
@@ -57,11 +55,15 @@ class Multimodal:
                 input_ids,
                 images=image_tensor,
                 do_sample=True,
-                temperature=0.2,
-                max_new_tokens=2048,
                 use_cache=False,
                 stopping_criteria=[stopping_criteria],
-                **custom_params,
+                **(
+                    dict(
+                        temperature=0.2,
+                        max_new_tokens=2048,
+                    )
+                    | custom_params
+                ),
             )
         text = self.tokenizer.decode(
             output_ids[0, input_ids.shape[1] :], skip_special_tokens=True

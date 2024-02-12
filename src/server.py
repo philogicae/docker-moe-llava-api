@@ -1,22 +1,24 @@
-from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi import FastAPI
 from multimodal import Multimodal
 from schema import get_schema_server
-from io import BytesIO
 from time import time as now
-from json import loads
+from base64 import b64decode
+from tempfile import NamedTemporaryFile
+from PIL import Image
+from urllib import parse
 import logging
 
-app = FastAPI(title="faster-whisper-fr-api")
+app = FastAPI(title="moe-llava-api")
 logger = logging.getLogger("uvicorn")
-model = None
+MODEL = None
 
 
 @app.on_event("startup")
 def on_startup():
     started = now()
-    global model
-    model = Multimodal()
-    logger.info(f"MODEL: {model.model_path} - Loaded ({now() - started:.2f}s)")
+    global MODEL
+    MODEL = Multimodal()
+    logger.info(f"MODEL: {MODEL.model_path} - Loaded ({now() - started:.2f}s)")
 
 
 @app.get("/")
@@ -31,19 +33,59 @@ async def schema():
     return {"schema": get_schema_server()}
 
 
-@app.post("/multimodal")
-async def multimodal(image: UploadFile, prompt: str, params=None):
+def base64_to_image(base64_file: str):
+    with NamedTemporaryFile(suffix=".tmp", delete=True) as img:
+        img.write(b64decode(base64_file))
+        return Image.open(img.name).convert("RGB")
+
+
+def url_to_image(images_url: str):
+    return Image.open(images_url).convert("RGB")
+
+
+@app.post("/vision")
+async def vision(job):
     started = now()
-    logger.info(f"FILE: {image.filename} - Start processing...")
+    job_input = job["input"]
+    output = dict(results=[])
     try:
-        params = (
-            (params if isinstance(params, dict) else loads(params)) if params else {}
-        )
-        result = model.process(BytesIO(await image.read()), prompt, params)
+        to_process = []
+        if "data" in job_input:
+            output["error"] = "Must provide data[]"
+        for item in job_input["data"]:
+            images, error = [], ""
+            prompt = item.get("prompt", None)
+            if not prompt:
+                error = "Must provide a prompt"
+                to_process.append(error)
+            else:
+                params = item.get("params", {})
+                if "images_base64" in item:
+                    images = [
+                        base64_to_image(
+                            parse.unquote(img) if item.get("urlEncoded", False) else img
+                        )
+                        for img in item["images_base64"]
+                    ]
+                elif "images_url" in item:
+                    images = [url_to_image(img) for img in item["images_url"]]
+                else:
+                    error = "Must provide either images_base64 or images_url"
+                    to_process.append(error)
+                if not error:
+                    to_process.append([images, prompt, params])
+        if to_process:
+            for item in to_process:
+                result = ""
+                if isinstance(item, str):
+                    result = dict(error=item)
+                else:
+                    started_gen = now()
+                    try:
+                        result = MODEL.process(*item)
+                    except Exception as e:
+                        result = dict(error=str(e))
+                    output["results"].append(result | {"time": now() - started_gen})
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail="Error during transcription: " + str(e)
-        )
-    stop = now() - started
-    logger.info(f"FILE: {image.filename} - Processed ({stop/60:.0f}m{stop%60:.2f}s)")
-    return result | {"time": stop}
+        output["error"] = str(e)
+    return output | {"total_time": now() - started}
